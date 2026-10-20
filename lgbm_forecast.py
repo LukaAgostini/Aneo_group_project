@@ -35,7 +35,7 @@ def add_features(g):
     g["roll_mean_7d"] = g["consumption"].shift(DELAY_H).rolling(168).mean()
     g["roll_std_7d"] = g["consumption"].shift(DELAY_H).rolling(168).std()
     
-    # forecasts are known for the target dayc
+    # forecasts are known for the target days
     g["temp_day_mean"] = g["temperature"].groupby(g.index.date).transform("mean")
     g["temp_lag_24"] = g["temperature"].shift(24)
     
