@@ -17,6 +17,7 @@ TEST_DAYS, N_FOLDS, N_TRIALS, SEED = 90, 4, 40, 42
 df = pd.read_csv("consumption_temp.csv", parse_dates=["time"])
 df["time"] = pd.to_datetime(df["time"], utc=True)
 df = df.drop_duplicates(["time", "location"]).sort_values(["location", "time"])
+df = df[~((df["location"] == "helsingfors") & (df["time"] < "2022-07-16 05:00:00+00:00"))]
 
 # adding the features
 def add_features(g):
@@ -48,10 +49,13 @@ def add_features(g):
 df = pd.concat([add_features(g) for _, g in df.groupby("location")], ignore_index=True)
 
 # adding the holidays, days off, hours and month flags
+USE_MONTH = True   # ablation: True = con month (in cima, accanto a DELAY_H, ecc.)
+
 loc_hol = {l: holidays.country_holidays("FI" if l.upper().startswith(("HEL", "FI")) else "NO")
            for l in df["location"].unique()}
 t = df["time"]
-df["hour"], df["dow"], df["month"] = t.dt.hour, t.dt.dayofweek, t.dt.month
+df["hour"], df["dow"] = t.dt.hour, t.dt.dayofweek
+if USE_MONTH: df["month"] = t.dt.month
 df["is_weekend"] = (df["dow"] >= 5).astype(int)
 df["is_holiday"] = [int(d in loc_hol[l]) for d, l in zip(t.dt.date, df["location"])]
 df["location"] = df["location"].astype("category")
@@ -63,9 +67,14 @@ FEATS = [c for c in df.columns if c not in ("time", "consumption")]
 df = df.dropna(subset=["consumption", "lag_336", "roll_mean_7d"]).sort_values("time").reset_index(drop=True)
 
 
+assert (df["hour"] == df["time"].dt.hour).all()
+print(len(df))        # deve essere 47446
+print(FEATS)          # LightGBM: niente month, niente temp_sq/hdd
+
 # ---------- chronological split ----------
 cut = df["time"].max() - pd.Timedelta(days=TEST_DAYS)
-train, test = df[df["time"] <= cut], df[df["time"] > cut]
+train = df[df["time"] <= cut - pd.Timedelta(hours=DELAY_H)]   # labels known at test start
+test  = df[df["time"] > cut]
 X, y = train[FEATS], train["consumption"]
 
 

@@ -16,6 +16,7 @@ DELAY_H, TEST_DAYS, N_FOLDS = 144, 90, 4
 df = pd.read_csv("consumption_temp.csv")
 df["time"] = pd.to_datetime(df["time"], utc=True)
 df = df.drop_duplicates(["time", "location"]).sort_values(["location", "time"])
+df = df[~((df["location"] == "helsingfors") & (df["time"] < "2022-07-16 05:00:00+00:00"))]
 
 # add the features 
 def add_features(g):
@@ -45,25 +46,35 @@ def add_features(g):
 # adding the feature for each location
 df = pd.concat([add_features(g) for _, g in df.groupby("location")], ignore_index=True)
 
+
+
 # adding the holidays, days off, hours and month flags
+USE_MONTH = True   # ablation: True = con month
 loc_hol = {l: holidays.country_holidays("FI" if l.upper().startswith(("HEL", "FI")) else "NO")
            for l in df["location"].unique()}
 t = df["time"]
-df["hour"], df["dow"], df["month"] = t.dt.hour, t.dt.dayofweek, t.dt.month
+df["hour"], df["dow"] = t.dt.hour, t.dt.dayofweek
+if USE_MONTH: df["month"] = t.dt.month
 df["is_weekend"] = (df["dow"] >= 5).astype(int)
 df["is_holiday"] = [int(d in loc_hol[l]) for d, l in zip(t.dt.date, df["location"])]
-df["temp_sq"] = df["temperature"] ** 2             # heating/cooling is non-linear in temperature
-df = df.dropna().sort_values("time").reset_index(drop=True)   # same rows as the LightGBM test set
+df["temp_sq"] = df["temperature"] ** 2
+df["hdd"] = (15 - df["temperature"]).clip(lower=0)   # heating degrees below 15 °C
+df = df.dropna().sort_values("time").reset_index(drop=True)
 
-CAT = ["hour", "dow", "month"]
+CAT = ["hour", "dow"] + (["month"] if USE_MONTH else [])
 NUM = [c for c in df.columns if c not in ["time", "location", "consumption", *CAT]]
 cut = df["time"].max() - pd.Timedelta(days=TEST_DAYS)
 
 
+assert (df["hour"] == df["time"].dt.hour).all()
+print(len(df))        # deve essere 47446
+print(CAT, NUM)       # Ridge: niente month, ci sono temp_sq e hdd
+
 # ---------- one RidgeCV per city (alpha chosen by expanding-window CV on train) ----------
 parts = []
 for loc, d in df.groupby("location"):
-    tr, te = d[d["time"] <= cut], d[d["time"] > cut].copy()
+    tr = d[d["time"] <= cut - pd.Timedelta(hours=DELAY_H)]
+    te = d[d["time"] > cut].copy()
     cv = TimeSeriesSplit(n_splits=N_FOLDS, test_size=len(tr) // (N_FOLDS + 2), gap=24 * 6)
     model = make_pipeline(
         ColumnTransformer([("cat", OneHotEncoder(handle_unknown="ignore"), CAT),
@@ -86,3 +97,5 @@ print("\nBy location:\n", test.groupby("location").apply(
                          "bias": d["err"].mean()}), include_groups=False).round(4))
 print("\nMAE by hour:\n", test.groupby("hour")["err"].apply(lambda e: e.abs().mean()).round(4).to_string())
 test[["time", "location", "consumption", "pred", "err", "hour"]].to_csv("ridge_test_predictions.csv", index=False)
+
+    

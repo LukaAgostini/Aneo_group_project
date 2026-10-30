@@ -1,0 +1,7 @@
+,,MAE,RMSE,WAPE_%,bias,ΔMAE_vs_frozen_%
+LightGBM,frozen,0.3002,0.432,5.4174,0.0665,0.0
+LightGBM,weekly refit,0.271,0.4101,4.889,0.0734,-9.7
+LightGBM,daily refit,0.2731,0.4126,4.9274,0.0671,-9.0
+Ridge,frozen,0.3051,0.4886,5.5054,-0.1432,0.0
+Ridge,weekly refit,0.2732,0.4504,4.9286,-0.0445,-10.5
+Ridge,daily refit,0.2761,0.4621,4.9817,-0.0261,-9.5
