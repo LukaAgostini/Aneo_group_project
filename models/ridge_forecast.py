@@ -13,7 +13,7 @@ from sklearn.preprocessing import OneHotEncoder, StandardScaler
 DELAY_H, TEST_DAYS, N_FOLDS = 144, 90, 4
 
 # ---------- data + features (identical to the LightGBM script) ----------
-df = pd.read_csv("consumption_temp.csv")
+df = pd.read_csv("./data/consumption_temp.csv")
 df["time"] = pd.to_datetime(df["time"], utc=True)
 df = df.drop_duplicates(["time", "location"]).sort_values(["location", "time"])
 df = df[~((df["location"] == "helsingfors") & (df["time"] < "2022-07-16 05:00:00+00:00"))]

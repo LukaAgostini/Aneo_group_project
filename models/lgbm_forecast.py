@@ -14,7 +14,7 @@ DELAY_H = 144
 TEST_DAYS, N_FOLDS, N_TRIALS, SEED = 90, 4, 40, 42
 
 # ---------- data ----------
-df = pd.read_csv("consumption_temp.csv", parse_dates=["time"])
+df = pd.read_csv("./data/consumption_temp.csv", parse_dates=["time"])
 df["time"] = pd.to_datetime(df["time"], utc=True)
 df = df.drop_duplicates(["time", "location"]).sort_values(["location", "time"])
 df = df[~((df["location"] == "helsingfors") & (df["time"] < "2022-07-16 05:00:00+00:00"))]
